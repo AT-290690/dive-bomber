@@ -164,7 +164,7 @@ function buildAABoat(x, z) {
   };
 }
 const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.shadowMap.enabled = false;
@@ -1492,7 +1492,7 @@ function buildCloudField() {
 
     for (let j = 0; j < puffCount; j += 1) {
       const puff = new THREE.Mesh(
-        new THREE.SphereGeometry(80 + rng() * (140 * densityScale), 10, 10),
+        new THREE.SphereGeometry(80 + rng() * (140 * densityScale), 6, 5),
         material
       );
       puff.position.set(
@@ -1510,7 +1510,7 @@ function buildCloudField() {
     group.add(cluster);
   }
 
-  for (let i = 0; i < 70; i += 1) {
+  for (let i = 0; i < 28; i += 1) {
     const baseX = (rng() * 2 - 1) * (MAP_HALF_SIZE - 240);
     const baseZ = (rng() * 2 - 1) * (MAP_HALF_SIZE - 240);
     const baseY = constants.cloudBaseAltitude + rng() * cloudHeightRange;
@@ -1524,7 +1524,7 @@ function buildCloudField() {
     shipPlacements.reduce((sum, placement) => sum + placement[1], 0) /
     shipPlacements.length;
 
-  for (let i = 0; i < 32; i += 1) {
+  for (let i = 0; i < 12; i += 1) {
     const baseX = fleetCenterX + (rng() * 2 - 1) * 720;
     const baseZ = fleetCenterZ + (rng() * 2 - 1) * 840;
     const baseY =
