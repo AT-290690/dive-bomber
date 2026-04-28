@@ -4,13 +4,13 @@ import * as THREE from "three";
 // const reticleEl = document.querySelector("#reticle");
 // const minimapEl = document.querySelector("#minimap");
 // const minimapCtx = minimapEl ? minimapEl.getContext("2d") : null;
-const SKY_COLOR = 0xbfdcf6;
+const SKY_COLOR = 0x056d82;
 const FOG_COLOR = 0xd8ebfa;
-const OCEAN_COLOR = 0x1a4f82;
+const OCEAN_COLOR = 0x192ee6;
 const START_POSITION = new THREE.Vector3(0, 2380, -1050);
 const START_YAW = 0;
-const SHIP_SCALE = 1.8;
-const FLAK_KILL_CHANCE = 0.04;
+const SHIP_SCALE = 3;
+const FLAK_KILL_CHANCE = 0.03;
 const SHIP_HEALTH = 320;
 const BULLET_DAMAGE = 1;
 const ENEMY_PLANE_HEALTH = 2;
@@ -195,7 +195,6 @@ const loadedBomb = planeRoot.getObjectByName("loadedBomb");
 const bullets = [];
 const enemyBullets = [];
 const bombs = [];
-const flakShells = [];
 const effects = [];
 const keyState = new Set();
 const speedLines = [];
@@ -751,19 +750,19 @@ function buildBombVisual(name = "") {
 function buildEnemyPlaneVisual() {
   const group = new THREE.Group();
   const bodyMaterial = new THREE.MeshStandardMaterial({
-    color: 0x19bd39,
+    color: 0xff3b3b, // bright red
     flatShading: true,
   });
   const wingMaterial = new THREE.MeshStandardMaterial({
-    color: 0x19bd39,
+    color: 0xc62828, // deep red
     flatShading: true,
   });
   const glassMaterial = new THREE.MeshStandardMaterial({
-    color: 0x8aa9bc,
+    color: 0xff8a80, // muted/pale red (glass-like)
     flatShading: true,
   });
   const darkMaterial = new THREE.MeshStandardMaterial({
-    color: 0x20242a,
+    color: 0x4a0f0f, // very dark red / near-black
     flatShading: true,
   });
 
@@ -1684,7 +1683,7 @@ function buildTargetShip(x, y) {
       group: turret,
       alive: true,
       health: SHIP_TURRET_HEALTH,
-      radius: 5 * SHIP_SCALE,
+      radius: 8 * SHIP_SCALE,
     },
     health: SHIP_HEALTH,
     flakCooldown: 1.2,
@@ -1973,7 +1972,6 @@ function resetFlight() {
   bullets.splice(0).forEach((entry) => scene.remove(entry.mesh));
   enemyBullets.splice(0).forEach((entry) => scene.remove(entry.mesh));
   bombs.splice(0).forEach((entry) => scene.remove(entry.mesh));
-  flakShells.splice(0).forEach((entry) => scene.remove(entry.mesh));
   effects.splice(0).forEach((entry) => scene.remove(entry.mesh));
   flight.hitsRemaining = PLAYER_HULL;
   rearTurret.yaw = 0;
@@ -2492,23 +2490,37 @@ function updateFlak(dt) {
     ship.flakCooldown -= dt;
     const rangeToPlane = ship.group.position.distanceTo(flight.position);
     if (rangeToPlane <= constants.flakRange && ship.flakCooldown <= 0) {
-      fireFlakShell(ship);
+      fireFlakInstant(ship);
       ship.flakCooldown = 0.35 + Math.random() * 0.55;
     }
   }
-
-  for (let i = flakShells.length - 1; i >= 0; i -= 1) {
-    const shell = flakShells[i];
-    shell.mesh.position.addScaledVector(shell.velocity, dt);
-    shell.ttl -= dt;
-    if (shell.ttl <= 0) {
-      spawnFlakBurst(shell.burstPosition);
-      scene.remove(shell.mesh);
-      flakShells.splice(i, 1);
-    }
-  }
 }
+function fireFlakInstant(ship) {
+  const shellOrigin = ship.group.position
+    .clone()
+    .add(new THREE.Vector3(0, 14 * SHIP_SCALE, 0));
 
+  const burstPosition = flight.position
+    .clone()
+    .addScaledVector(getForward(), 80 + Math.random() * 220)
+    .add(
+      new THREE.Vector3(
+        (Math.random() - 0.5) * 180,
+        (Math.random() - 0.5) * 140,
+        (Math.random() - 0.5) * 180
+      )
+    );
+
+  const travelDistance = shellOrigin.distanceTo(burstPosition);
+  const travelTimeMs = Math.max(
+    120,
+    (travelDistance / constants.flakShellSpeed) * 1000
+  );
+
+  setTimeout(() => {
+    spawnFlakBurst(burstPosition);
+  }, travelTimeMs);
+}
 function fireFlakShell(ship) {
   const projectedTarget = flight.position
     .clone()
@@ -2530,17 +2542,11 @@ function fireFlakShell(ship) {
   const velocity = travelVector.clone().multiplyScalar(1 / travelTime);
 
   const mesh = new THREE.Mesh(
-    new THREE.SphereGeometry(0.55, 8, 8),
+    new THREE.SphereGeometry(0.55, 5, 4),
     new THREE.MeshBasicMaterial({ color: 0x2a2a2a })
   );
   mesh.position.copy(shellOrigin);
   scene.add(mesh);
-  flakShells.push({
-    mesh,
-    velocity,
-    ttl: travelTime,
-    burstPosition,
-  });
 }
 
 function spawnFlakBurst(position) {
@@ -2558,11 +2564,10 @@ function spawnFlakBurst(position) {
     depthWrite: false,
   });
 
-  const puffCount = 6 + Math.floor(Math.random() * 5);
-
+  const puffCount = 3 + Math.floor(Math.random() * 3);
   for (let i = 0; i < puffCount; i++) {
     const puff = new THREE.Mesh(
-      new THREE.SphereGeometry(4 + Math.random() * 4, 8, 8),
+      new THREE.SphereGeometry(4 + Math.random() * 4, 5, 4),
       material
     );
 
@@ -2622,7 +2627,7 @@ function destroyPlayerPlane(position, intensity) {
   flight.flakShake = Math.max(flight.flakShake, 2.8 * intensity);
 
   const blast = new THREE.Mesh(
-    new THREE.SphereGeometry(5.5, 14, 14),
+    new THREE.SphereGeometry(5.5, 7, 7),
     new THREE.MeshBasicMaterial({
       color: 0xffc06b,
       transparent: true,
@@ -2634,7 +2639,7 @@ function destroyPlayerPlane(position, intensity) {
   effects.push({ mesh: blast, ttl: 0.55, grow: 24, fade: 1.9 });
 
   const smoke = new THREE.Mesh(
-    new THREE.SphereGeometry(8.5, 12, 12),
+    new THREE.SphereGeometry(8.5, 5, 5),
     new THREE.MeshBasicMaterial({
       color: 0x4c4e55,
       transparent: true,
@@ -2761,12 +2766,12 @@ function spawnEnemyBullet(origin, forward) {
   tracer.rotation.x = Math.PI * 0.5;
   mesh.add(tracer);
 
-  const glow = new THREE.Mesh(
-    new THREE.SphereGeometry(0.22, 6, 6),
-    new THREE.MeshBasicMaterial({ color: 0xffdc7a })
-  );
-  glow.position.z = 1.8;
-  mesh.add(glow);
+  // const glow = new THREE.Mesh(
+  //   new THREE.SphereGeometry(0.22, 6, 6),
+  //   new THREE.MeshBasicMaterial({ color: 0xffdc7a })
+  // );
+  // glow.position.z = 1.8;
+  // mesh.add(glow);
 
   mesh.position.copy(origin);
   mesh.quaternion.setFromUnitVectors(
