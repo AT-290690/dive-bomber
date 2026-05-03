@@ -613,33 +613,33 @@ function buildPlaceholderPlane() {
     new THREE.BoxGeometry(3.4, 0.22, 1.9),
     wing
   );
-  leftInnerWing.position.set(-2.8, -0.58, 0.55);
-  leftInnerWing.rotation.z = 0.22;
+  leftInnerWing.position.set(-3.15, 0.18, 0.55);
+  leftInnerWing.rotation.z = -0.22;
   group.add(leftInnerWing);
 
   const rightInnerWing = new THREE.Mesh(
     new THREE.BoxGeometry(3.4, 0.22, 1.9),
     wing
   );
-  rightInnerWing.position.set(2.8, -0.58, 0.55);
-  rightInnerWing.rotation.z = -0.22;
+  rightInnerWing.position.set(3.15, 0.18, 0.55);
+  rightInnerWing.rotation.z = 0.22;
   group.add(rightInnerWing);
 
-  const leftOuterWing = new THREE.Mesh(
-    new THREE.BoxGeometry(2.3, 0.2, 1.65),
-    wing
-  );
-  leftOuterWing.position.set(-5.6, -0.8, 0.55);
-  leftOuterWing.rotation.z = -0.12;
-  group.add(leftOuterWing);
+  // const leftOuterWing = new THREE.Mesh(
+  //   new THREE.BoxGeometry(2.3, 0.2, 1.65),
+  //   wing
+  // );
+  // leftOuterWing.position.set(-5.6, -0.8, 0.55);
+  // leftOuterWing.rotation.z = -0.12;
+  // group.add(leftOuterWing);
 
-  const rightOuterWing = new THREE.Mesh(
-    new THREE.BoxGeometry(2.3, 0.2, 1.65),
-    wing
-  );
-  rightOuterWing.position.set(5.6, -0.8, 0.55);
-  rightOuterWing.rotation.z = 0.12;
-  group.add(rightOuterWing);
+  // const rightOuterWing = new THREE.Mesh(
+  //   new THREE.BoxGeometry(2.3, 0.2, 1.65),
+  //   wing
+  // );
+  // rightOuterWing.position.set(5.6, -0.8, 0.55);
+  // rightOuterWing.rotation.z = 0.12;
+  // group.add(rightOuterWing);
 
   const tailWing = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.16, 0.95), wing);
   tailWing.position.set(0, 0.18, -3.1);
@@ -777,7 +777,7 @@ function buildEnemyPlaneVisual() {
     new THREE.ConeGeometry(0.56, 1.5, 6),
     bodyMaterial
   );
-  nose.rotation.x = Math.PI * 0.5;
+  nose.rotation.x = -Math.PI * 0.5;
   nose.position.z = 3.45;
   group.add(nose);
 
@@ -816,7 +816,6 @@ function buildEnemyPlaneVisual() {
   prop.position.set(0, 0, 3.92);
   prop.name = "propeller";
   group.add(prop);
-
   return group;
 }
 
@@ -897,29 +896,6 @@ function moveToward(current, target, maxDelta) {
   return current + Math.sign(target - current) * maxDelta;
 }
 
-function beginEnemyRegroup(enemy, extraDelay = 0) {
-  enemy.state = "regroup";
-  enemy.stateTimer = Math.max(
-    enemy.stateTimer,
-    constants.enemyWaveResetDelay + enemy.waveIndex * 0.22 + extraDelay
-  );
-
-  const forwardCarry = enemy.forward.clone().setY(0).normalize();
-  if (forwardCarry.lengthSq() < 0.001) {
-    forwardCarry.set(0, 0, 1);
-  }
-
-  const recoveryPoint = enemy.position
-    .clone()
-    .addScaledVector(forwardCarry, 340)
-    .lerp(
-      new THREE.Vector3(enemy.center.x, enemy.position.y, enemy.center.z - 40),
-      0.28
-    );
-  recoveryPoint.y = enemy.regroupAltitude;
-  enemy.regroupPoint.copy(recoveryPoint);
-}
-
 function setEnemyPlaneTransform(enemy) {
   const position = enemy.position ?? getEnemyPlanePosition(enemy, enemy.phase);
   const forward =
@@ -930,15 +906,19 @@ function setEnemyPlaneTransform(enemy) {
       .normalize();
 
   enemy.group.position.copy(position);
+
   enemy.group.rotation.order = "YXZ";
   enemy.group.rotation.y = Math.atan2(forward.x, forward.z);
-  enemy.group.rotation.x = Math.asin(THREE.MathUtils.clamp(forward.y, -1, 1));
+
+  const pitch = Math.asin(THREE.MathUtils.clamp(forward.y, -1, 1));
+  enemy.group.rotation.x = -pitch;
+
   enemy.group.rotation.z =
     enemy.state === "attack"
-      ? -0.16 * Math.sign(enemy.angularSpeed || 1)
+      ? -0.12 * Math.sign(enemy.angularSpeed || 1)
       : enemy.state === "regroup"
-      ? -0.24 * Math.sign(enemy.angularSpeed || 1)
-      : -0.34 * Math.sign(enemy.angularSpeed || 1);
+      ? -0.18 * Math.sign(enemy.angularSpeed || 1)
+      : -0.24 * Math.sign(enemy.angularSpeed || 1);
 
   const propeller = enemy.group.getObjectByName("propeller");
   if (propeller) {
@@ -2083,6 +2063,10 @@ function updateEnemyPlanes(dt) {
     const playerIsDiving = flight.diveLock || flight.pitch > 0.45;
 
     let chaseTarget;
+    const playerIsClimbing = flight.pitch < -0.25;
+    const enemyTargetSpeed = playerIsDiving
+      ? constants.enemyDiveCatchupSpeed + 15
+      : constants.enemyDiveCatchupSpeed;
 
     if (playerIsDiving) {
       const safeY = Math.max(flight.position.y + 25, 120);
@@ -2097,8 +2081,8 @@ function updateEnemyPlanes(dt) {
       // Normal chase: stay behind you
       chaseTarget = flight.position
         .clone()
-        .addScaledVector(playerForward, -130)
-        .add(new THREE.Vector3(0, 10, 0));
+        .addScaledVector(playerForward, playerIsClimbing ? -45 : -130)
+        .add(new THREE.Vector3(0, playerIsClimbing ? 5 : 10, 0));
     }
 
     const targetDirection = chaseTarget.sub(enemy.position).normalize();
@@ -2130,10 +2114,6 @@ function updateEnemyPlanes(dt) {
 
     const nearWater = enemy.position.y < 180;
 
-    const enemyTargetSpeed = playerIsDiving
-      ? constants.enemyDiveCatchupSpeed + 15
-      : constants.enemyDiveCatchupSpeed;
-
     enemy.currentSpeed = moveToward(
       enemy.currentSpeed,
       enemyTargetSpeed,
@@ -2144,7 +2124,13 @@ function updateEnemyPlanes(dt) {
         : constants.enemyDiveAcceleration * dt
     );
 
-    const turnRate = nearWater ? 2.2 : playerIsDiving ? 1.05 : 0.9;
+    const turnRate = nearWater
+      ? 2.2
+      : playerIsDiving
+      ? 1.05
+      : playerIsClimbing
+      ? 2.6
+      : 1.15;
 
     enemy.forward.lerp(
       desiredDirection,
@@ -3268,15 +3254,12 @@ function updateEnemyWrecks(dt) {
     }
 
     enemy.group.position.copy(enemy.position);
-    enemy.group.rotation.order = "YXZ";
+    const q = new THREE.Quaternion();
+    q.setFromUnitVectors(new THREE.Vector3(0, 0, 1), enemy.forward);
+    enemy.group.quaternion.copy(q);
 
-    enemy.group.rotation.y = Math.atan2(enemy.forward.x, enemy.forward.z);
-    enemy.group.rotation.x = Math.asin(
-      THREE.MathUtils.clamp(enemy.forward.y, -1, 1)
-    );
-
-    enemy.group.rotation.z += enemy.wreckRollSpeed * dt;
-    enemy.group.rotation.y += enemy.wreckYawDrift * dt;
+    enemy.group.rotateZ(enemy.wreckRollSpeed * dt);
+    enemy.group.rotateY(enemy.wreckYawDrift * dt);
 
     const propeller = enemy.group.getObjectByName("propeller");
     if (propeller) {
