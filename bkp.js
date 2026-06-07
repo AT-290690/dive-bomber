@@ -48,69 +48,6 @@ const aaBoatPlacements = [
   [750, 3100],
 ].map(([x, z]) => [x * 2.5, z]);
 scene.fog = new THREE.Fog(FOG_COLOR, 220, 1700);
-const isTouchDevice = "ontouchstart" in window || navigator.maxTouchPoints > 0;
-const touchInput = {
-  pitch: 0,
-  roll: 0,
-  boost: false,
-  fire: false,
-  rearFire: false,
-  diveTap: false,
-  bombTap: false,
-  aimTap: false,
-  rearTap: false,
-  resetTap: false,
-};
-const mobileUi = {
-  controlsEl: null,
-  hudEl: null,
-  statsEl: null,
-  hintEl: null,
-  joystickZone: null,
-  joystickBase: null,
-  joystickStick: null,
-  cameraZone: null,
-  pointerId: null,
-  cameraPointerId: null,
-  hintHidden: false,
-};
-
-function getPointerSensitivity() {
-  return isTouchDevice ? 1.35 : 1;
-}
-
-function applyCameraPointerMove(dx, dy) {
-  const sensitivity = getPointerSensitivity();
-
-  if (cameraState.mode === 2) {
-    rearTurret.yaw -= dx * rearTurret.sensitivity * sensitivity;
-    rearTurret.pitch -= dy * rearTurret.sensitivity * sensitivity;
-
-    rearTurret.yaw = THREE.MathUtils.clamp(
-      rearTurret.yaw,
-      -rearTurret.maxYaw,
-      rearTurret.maxYaw
-    );
-
-    rearTurret.pitch = THREE.MathUtils.clamp(
-      rearTurret.pitch,
-      rearTurret.minPitch,
-      rearTurret.maxPitch
-    );
-
-    return;
-  }
-
-  if (!cameraState.dragging) return;
-
-  cameraState.orbitYaw -= dx * 0.0055 * sensitivity;
-  cameraState.orbitPitch = THREE.MathUtils.clamp(
-    cameraState.orbitPitch - dy * 0.004 * sensitivity,
-    -1.15,
-    1.15
-  );
-}
-
 function onPointerDown(event) {
   unlockAudio();
 
@@ -142,7 +79,34 @@ function onPointerMove(event) {
 
   cameraState.pointerX = event.clientX;
   cameraState.pointerY = event.clientY;
-  applyCameraPointerMove(dx, dy);
+
+  if (cameraState.mode === 2) {
+    rearTurret.yaw -= dx * rearTurret.sensitivity;
+    rearTurret.pitch -= dy * rearTurret.sensitivity;
+
+    rearTurret.yaw = THREE.MathUtils.clamp(
+      rearTurret.yaw,
+      -rearTurret.maxYaw,
+      rearTurret.maxYaw
+    );
+
+    rearTurret.pitch = THREE.MathUtils.clamp(
+      rearTurret.pitch,
+      rearTurret.minPitch,
+      rearTurret.maxPitch
+    );
+
+    return;
+  }
+
+  if (!cameraState.dragging) return;
+
+  cameraState.orbitYaw -= dx * 0.0055;
+  cameraState.orbitPitch = THREE.MathUtils.clamp(
+    cameraState.orbitPitch - dy * 0.004,
+    -1.15,
+    1.15
+  );
 }
 function onPointerUp(event) {
   if (event.button === 0) rearTurret.firing = false;
@@ -591,8 +555,6 @@ renderer.setAnimationLoop(() => {
   updateAABoatFlak(dt);
   updateSinkingShips(dt);
   updateEffects(dt);
-
-  updateMobileHud();
 
   // updateTelemetry();
   // updateReticle();
@@ -1769,33 +1731,12 @@ function updateFlight(dt) {
   if (consumeSinglePress("Digit5")) cameraState.mode = 5;
   if (consumeSinglePress("Digit6")) cameraState.mode = 6; // front of plane
   if (consumeSinglePress("Digit7")) cameraState.mode = 7; // back of plane
-  if (touchInput.rearTap) {
-    touchInput.rearTap = false;
-    if (cameraState.mode === 2) {
-      cameraState.mode = 3;
-      cameraState.aimView = false;
-      exitPointerLock();
-    } else {
-      cameraState.mode = 2;
-      cameraState.aimView = false;
-      enterPointerLock();
-    }
+  if (consumeSinglePress("KeyQ")) {
+    cameraState.mode = cameraState.mode === 1 ? 3 : 1;
+    cameraState.aimView = cameraState.mode === 1;
   }
 
-  if (consumeSinglePress("KeyQ") || touchInput.aimTap) {
-    touchInput.aimTap = false;
-    if (cameraState.mode === 2) {
-      cameraState.mode = 1;
-      cameraState.aimView = true;
-      exitPointerLock();
-    } else {
-      cameraState.mode = cameraState.mode === 1 ? 3 : 1;
-      cameraState.aimView = cameraState.mode === 1;
-    }
-  }
-
-  if (consumeSinglePress("Digit0") || touchInput.resetTap) {
-    touchInput.resetTap = false;
+  if (consumeSinglePress("Digit0")) {
     resetFlight();
     return;
   }
@@ -1807,20 +1748,17 @@ function updateFlight(dt) {
   let pitchInput = 0;
   if (keyState.has("KeyW")) pitchInput += 1;
   if (keyState.has("KeyS")) pitchInput -= 1;
-  if (touchInput.pitch !== 0) pitchInput = touchInput.pitch;
 
   let rollInput = 0;
   if (keyState.has("KeyA")) rollInput -= 0.5;
   if (keyState.has("KeyD")) rollInput += 0.5;
-  if (touchInput.roll !== 0) rollInput = touchInput.roll * 0.5;
 
   if (cameraState.aimView || cameraState.mode === 2) {
     pitchInput *= 0.22;
     rollInput *= 0.22;
   }
 
-  if (consumeSinglePress("KeyE") || touchInput.diveTap) {
-    touchInput.diveTap = false;
+  if (consumeSinglePress("KeyE")) {
     if (flight.diveLock) {
       flight.diveLock = false;
       flight.diveRecovering = true;
@@ -1856,8 +1794,7 @@ function updateFlight(dt) {
     ? 0
     : rollInput * 0.96;
   flight.roll = THREE.MathUtils.damp(flight.roll, targetRoll, 6, dt);
-  const boosting =
-    keyState.has("ShiftLeft") || keyState.has("ShiftRight") || touchInput.boost;
+  const boosting = keyState.has("ShiftLeft") || keyState.has("ShiftRight");
 
   const boostSpeedFactor = THREE.MathUtils.clamp(
     THREE.MathUtils.inverseLerp(
@@ -1953,20 +1890,12 @@ function updateFlight(dt) {
     flight.diveRecovering = false;
   }
 
-  if (touchInput.fire && flight.gunCooldown <= 0) {
-    if (cameraState.mode === 2) {
-      fireRearBullets();
-    } else {
-      fireBullets();
-    }
-    flight.gunCooldown = 0.08;
-  } else if (keyState.has("Space") && flight.gunCooldown <= 0) {
+  if (keyState.has("Space") && flight.gunCooldown <= 0) {
     fireBullets();
     flight.gunCooldown = 0.08;
   }
   if (
-    (touchInput.rearFire ||
-      keyState.has("Backspace") ||
+    (keyState.has("Backspace") ||
       (cameraState.mode === 2 && rearTurret.firing)) &&
     flight.gunCooldown <= 0
   ) {
@@ -1975,15 +1904,12 @@ function updateFlight(dt) {
   }
 
   if (
-    (consumeSinglePress("KeyB") || touchInput.bombTap) &&
+    consumeSinglePress("KeyB") &&
     flight.diveLock &&
     flight.bombCooldown <= 0
   ) {
-    touchInput.bombTap = false;
     dropBomb();
     flight.bombCooldown = constants.bombCooldownTime;
-  } else {
-    touchInput.bombTap = false;
   }
 
   if (flight.position.y <= constants.minAltitude + 0.5) {
@@ -3507,231 +3433,9 @@ function getUp() {
 }
 
 function onResize() {
-  const width = window.visualViewport?.width ?? window.innerWidth;
-  const height = window.visualViewport?.height ?? window.innerHeight;
-  camera.aspect = width / height;
+  camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
-  renderer.setSize(width, height);
+  renderer.setSize(window.innerWidth, window.innerHeight);
 }
 
-function hideMobileHint() {
-  if (!mobileUi.hintEl || mobileUi.hintHidden) return;
-  mobileUi.hintHidden = true;
-  mobileUi.hintEl.classList.add("hidden");
-}
-
-function updateJoystick(clientX, clientY) {
-  if (!mobileUi.joystickBase || !mobileUi.joystickStick) return;
-
-  const rect = mobileUi.joystickBase.getBoundingClientRect();
-  const centerX = rect.left + rect.width * 0.5;
-  const centerY = rect.top + rect.height * 0.5;
-  const maxRadius = rect.width * 0.34;
-  const dx = clientX - centerX;
-  const dy = clientY - centerY;
-  const distance = Math.hypot(dx, dy);
-  const clampedDistance = Math.min(distance, maxRadius);
-  const angle = Math.atan2(dy, dx);
-  const offsetX = Math.cos(angle) * clampedDistance;
-  const offsetY = Math.sin(angle) * clampedDistance;
-  const deadZone = maxRadius * 0.14;
-
-  mobileUi.joystickStick.style.transform = `translate(${offsetX}px, ${offsetY}px)`;
-
-  if (clampedDistance <= deadZone) {
-    touchInput.pitch = 0;
-    touchInput.roll = 0;
-    return;
-  }
-
-  const normalized = (clampedDistance - deadZone) / (maxRadius - deadZone);
-  touchInput.pitch =
-    THREE.MathUtils.clamp(-offsetY / maxRadius, -1, 1) * normalized;
-  touchInput.roll =
-    THREE.MathUtils.clamp(offsetX / maxRadius, -1, 1) * normalized;
-}
-
-function resetJoystick() {
-  touchInput.pitch = 0;
-  touchInput.roll = 0;
-  if (mobileUi.joystickStick) {
-    mobileUi.joystickStick.style.transform = "translate(0px, 0px)";
-  }
-}
-
-function setMobileButtonState(action, active) {
-  const button = mobileUi.controlsEl?.querySelector(
-    `[data-action="${action}"]`
-  );
-  if (button) button.classList.toggle("active", active);
-}
-
-function initMobileControls() {
-  if (!isTouchDevice) return;
-
-  mobileUi.controlsEl = document.querySelector("#mobile-controls");
-  mobileUi.hudEl = document.querySelector("#mobile-hud");
-  mobileUi.statsEl = document.querySelector("#mobile-stats");
-  mobileUi.hintEl = document.querySelector("#mobile-hint");
-  mobileUi.joystickZone = document.querySelector("#joystick-zone");
-  mobileUi.joystickBase = document.querySelector("#joystick-base");
-  mobileUi.joystickStick = document.querySelector("#joystick-stick");
-  mobileUi.cameraZone = document.querySelector("#camera-zone");
-
-  if (!mobileUi.controlsEl) return;
-
-  mobileUi.controlsEl.hidden = false;
-  if (mobileUi.hudEl) mobileUi.hudEl.hidden = false;
-
-  mobileUi.joystickZone.addEventListener("pointerdown", (event) => {
-    event.preventDefault();
-    unlockAudio();
-    hideMobileHint();
-    mobileUi.pointerId = event.pointerId;
-    mobileUi.joystickZone.setPointerCapture(event.pointerId);
-    updateJoystick(event.clientX, event.clientY);
-  });
-
-  mobileUi.joystickZone.addEventListener("pointermove", (event) => {
-    if (event.pointerId !== mobileUi.pointerId) return;
-    event.preventDefault();
-    updateJoystick(event.clientX, event.clientY);
-  });
-
-  const releaseJoystick = (event) => {
-    if (event.pointerId !== mobileUi.pointerId) return;
-    mobileUi.pointerId = null;
-    resetJoystick();
-  };
-
-  mobileUi.joystickZone.addEventListener("pointerup", releaseJoystick);
-  mobileUi.joystickZone.addEventListener("pointercancel", releaseJoystick);
-
-  mobileUi.cameraZone.addEventListener("pointerdown", (event) => {
-    event.preventDefault();
-    unlockAudio();
-    hideMobileHint();
-    mobileUi.cameraPointerId = event.pointerId;
-    mobileUi.cameraZone.setPointerCapture(event.pointerId);
-    cameraState.pointerX = event.clientX;
-    cameraState.pointerY = event.clientY;
-
-    if (cameraState.mode === 2) {
-      enterPointerLock();
-      rearTurret.firing = true;
-      return;
-    }
-
-    cameraState.dragging = true;
-  });
-
-  mobileUi.cameraZone.addEventListener("pointermove", (event) => {
-    if (event.pointerId !== mobileUi.cameraPointerId) return;
-    event.preventDefault();
-
-    const dx = event.clientX - cameraState.pointerX;
-    const dy = event.clientY - cameraState.pointerY;
-    cameraState.pointerX = event.clientX;
-    cameraState.pointerY = event.clientY;
-    applyCameraPointerMove(dx, dy);
-  });
-
-  const releaseCameraPointer = (event) => {
-    if (event.pointerId !== mobileUi.cameraPointerId) return;
-    mobileUi.cameraPointerId = null;
-    rearTurret.firing = false;
-    cameraState.dragging = false;
-  };
-
-  mobileUi.cameraZone.addEventListener("pointerup", releaseCameraPointer);
-  mobileUi.cameraZone.addEventListener("pointercancel", releaseCameraPointer);
-
-  for (const button of mobileUi.controlsEl.querySelectorAll(".mobile-btn")) {
-    const action = button.dataset.action;
-    if (!action) continue;
-
-    button.addEventListener("pointerdown", (event) => {
-      event.preventDefault();
-      unlockAudio();
-      hideMobileHint();
-      button.setPointerCapture(event.pointerId);
-
-      if (action === "boost" || action === "fire" || action === "rearFire") {
-        touchInput[action] = true;
-        button.classList.add("active");
-        return;
-      }
-
-      if (action === "dive") touchInput.diveTap = true;
-      if (action === "bomb") touchInput.bombTap = true;
-      if (action === "aim") touchInput.aimTap = true;
-      if (action === "rear") touchInput.rearTap = true;
-      if (action === "reset") touchInput.resetTap = true;
-      button.classList.add("active");
-    });
-
-    button.addEventListener("pointerup", () => {
-      if (action === "boost" || action === "fire" || action === "rearFire") {
-        touchInput[action] = false;
-      }
-      button.classList.remove("active");
-    });
-
-    button.addEventListener("pointercancel", () => {
-      if (action === "boost" || action === "fire" || action === "rearFire") {
-        touchInput[action] = false;
-      }
-      button.classList.remove("active");
-    });
-  }
-
-  window.visualViewport?.addEventListener("resize", onResize);
-  document.addEventListener("gesturestart", (event) => event.preventDefault());
-  document.addEventListener(
-    "touchmove",
-    (event) => {
-      if (event.target === renderer.domElement) event.preventDefault();
-    },
-    { passive: false }
-  );
-}
-
-function updateMobileControlUi() {
-  if (!mobileUi.controlsEl) return;
-
-  const inRearCam = cameraState.mode === 2;
-  setMobileButtonState("rear", inRearCam);
-
-  const tailBtn = document.querySelector("#mobile-tail-btn");
-  if (tailBtn) tailBtn.classList.toggle("hidden", inRearCam);
-}
-
-function updateMobileHud() {
-  if (!mobileUi.statsEl) return;
-
-  updateMobileControlUi();
-
-  const shipsRemaining = targetShips.filter((ship) => ship.alive).length;
-  const diveState = flight.diveLock
-    ? "LOCK"
-    : flight.diveRecovering
-    ? "RECOVER"
-    : "FREE";
-  const camState =
-    cameraState.mode === 2
-      ? "REAR"
-      : cameraState.aimView
-      ? "AIM"
-      : "CHASE";
-
-  mobileUi.statsEl.textContent = flight.destroyed
-    ? `SHOT DOWN · TAP RESET`
-    : `ALT ${flight.position.y.toFixed(0)} · SPD ${flight.speed.toFixed(
-        0
-      )} · HUL ${
-        flight.hitsRemaining
-      } · ${camState} · DIVE ${diveState} · SHP ${shipsRemaining}`;
-}
-
-initMobileControls();
 resetFlight();

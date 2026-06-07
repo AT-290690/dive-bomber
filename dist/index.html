@@ -2,12 +2,71 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Pacific Corsair</title>
-    <script type="module" crossorigin src="./assets/index-Ha8hj0E_.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/index-D18LUcA7.css" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <title>Pacific Corsair Prototype</title>
+    <script type="module" crossorigin src="./assets/index-z6eUAiKT.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-CbeGpqlC.css" />
   </head>
   <body>
+    <div id="mobile-hud" hidden>
+      <div id="mobile-stats"></div>
+      <div id="mobile-hint">
+        Drag right to look · REAR cam aims tail gun · FIRE / TAIL to shoot
+      </div>
+    </div>
+    <div id="mobile-controls" hidden>
+      <div id="camera-zone" aria-hidden="true"></div>
+      <div id="joystick-zone">
+        <div id="joystick-base">
+          <div id="joystick-stick"></div>
+        </div>
+      </div>
+      <div id="action-buttons">
+        <button type="button" class="mobile-btn" data-action="dive">
+          DIVE
+        </button>
+        <button type="button" class="mobile-btn" data-action="aim">AIM</button>
+        <button
+          type="button"
+          class="mobile-btn mobile-btn-rear"
+          data-action="rear"
+        >
+          REAR
+        </button>
+        <button type="button" class="mobile-btn" data-action="bomb">
+          BOMB
+        </button>
+
+        <button type="button" class="mobile-btn" data-action="boost">
+          BOOST
+        </button>
+        <!-- <button type="button" class="mobile-btn" data-action="reset">
+          RESET
+        </button> -->
+        <p></p>
+        <button
+          type="button"
+          class="mobile-btn mobile-btn-fire"
+          data-action="fire"
+          id="mobile-fire-btn"
+        >
+          FIRE
+        </button>
+        <button
+          type="button"
+          class="mobile-btn mobile-btn-fire mobile-btn-tail"
+          data-action="rearFire"
+          id="mobile-tail-btn"
+        >
+          TAIL
+        </button>
+      </div>
+    </div>
     <!-- <div id="hud">
       <div class="title">PACIFIC CORSAIR PROTOTYPE</div>
       <div class="controls">W/S pitch A/D bank-turn</div>
